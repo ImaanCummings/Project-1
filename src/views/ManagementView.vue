@@ -6,6 +6,7 @@ const employees = ref(employeeData.employeeInformation);
 </script>
 
 <template>
+    <h1 class="heading"> Employee Management</h1>
     <div class="employee-catalogue">
         <div class="employee-card" v-for="employee in employees" :key="employee.employeeId">
             <h3>{{ employee.name }}</h3>
@@ -19,6 +20,13 @@ const employees = ref(employeeData.employeeInformation);
 </template>
 
 <style>
+.heading {
+  font-size: 1.875rem;
+  font-weight: bold;
+  margin-bottom: 1.5rem;
+  color: #333;
+}
+
 .employee-catalogue {
     display: flex;
     flex-wrap: wrap;
