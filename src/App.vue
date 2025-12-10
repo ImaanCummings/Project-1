@@ -2,6 +2,7 @@
 import { RouterLink, RouterView } from 'vue-router'
 import logo from './assets/Canva Design.png'
 
+
 const logoSrc = logo
 </script>
 
