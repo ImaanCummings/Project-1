@@ -20,6 +20,7 @@ const logoSrc = logo
             <RouterLink to="/timeOff" class="nav-link" active-class="active">Time Off & Attendance</RouterLink>
             <RouterLink to="/payroll" class="nav-link" active-class="active">Payroll Processor</RouterLink>
             <RouterLink to="/management" class="nav-link" active-class="active">Employee Management</RouterLink>
+            <RouterLink to="/employee" class="nav-link" active-class="active">Employee Review</RouterLink>
           </div>
         </div>
      </div> 
