@@ -1,0 +1,12 @@
+{
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/*"]
+    },
+    "jsx": "preserve",
+    "types": ["vite/client"]
+  },
+  "include": ["src/**/*", "env.d.ts", "vite.config.ts"],
+  "exclude": ["node_modules", "dist"]
+}
