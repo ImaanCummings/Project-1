@@ -74,8 +74,8 @@
             <h1 class="heading">Employee Review</h1>
             <div class="mb-3">
                 <label for="employeeName" class="form-label">Select Employee Name</label>
-                <select v-model="form.employeeName" id="employeeName" class="form-select">  <!-- { changed code } -->
-                    <option value="">-- Select --</option>
+                <select v-model="form.employeeName" id="employeeName" class="form-select"> 
+                    <option value="">Select</option>
                     <option value="Sibongile Nkosi">Sibongile Nkosi</option>
                     <option value="Lungile Moyo">Lungile Moyo</option>
                     <option value="Thabo Molefe">Thabo Molefe</option>
@@ -91,7 +91,7 @@
 
             <div class="mb-3">
                 <label for="reviewTextarea" class="form-label">Review</label>
-                <textarea v-model="form.reviewText" id="reviewTextarea" class="form-control" rows="3"></textarea>  <!-- { changed code } -->
+                <textarea v-model="form.reviewText" id="reviewTextarea" class="form-control" rows="3"></textarea>
             </div>
 
             <button @click="addReview" class="btn btn-primary">Submit Review</button>
