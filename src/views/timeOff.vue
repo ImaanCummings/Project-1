@@ -1,39 +1,81 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
-import attendanceJson from '@/data/attendance.json'
-import employeeJson from '@/data/employee_info.json'
+import attendanceService from '@/services/attendanceService'
+import leaveService from '@/services/leaveService'
 
 const attendanceData = ref([])
-const employees = computed(() => employeeJson.employeeInformation ?? [])
-const timeOffArray = ref(attendanceJson.attendanceAndLeave ?? [])
+const leaveRequests = ref([])
 const activeTab = ref('attendance')
 
-onMounted(() => {
-  // Flatten attendance records from nested structure
-  const flattened = []
-  const rawData = attendanceJson.attendanceAndLeave ?? []
-  
-  rawData.forEach((emp, idx) => {
-    if (emp.employeeId && emp.attendance) {
-      emp.attendance.forEach((att, attIdx) => {
-        flattened.push({
-          id: `${emp.employeeId}-${attIdx}`,
-          employeeId: emp.employeeId,
-          name: emp.name ?? 'Unknown',
-          date: att.date ?? '',
-          status: att.status ?? 'pending'
-        })
-      })
-    }
-  })
-  
-  attendanceData.value = flattened
-})
+async function loadAttendance() {
+  try {
+    const data = await attendanceService.getAttendance()
 
-function updateStatus(id, status) {
-  const record = attendanceData.value.find(a => a.id === id)
-  if (record) {
-    record.status = status
+    attendanceData.value = data.map((att, index) => ({
+      id: att.id || index,
+      employeeId: att.employeeId,
+      name: att.name,
+      date: att.date,
+      status: att.status
+    }))
+  } catch (err) {
+    alert(err)
+  }
+}
+
+async function loadLeaves() {
+  try {
+    leaveRequests.value = await leaveService.getLeaves()
+  } catch (err) {
+    alert(err)
+  }
+}
+
+async function submitLeave(e) {
+  e.preventDefault()
+
+  const payload = {
+    name: document.getElementById("name").value,
+    type: document.getElementById("type").value,
+    from: document.getElementById("from").value,
+    to: document.getElementById("to").value,
+    reason: document.getElementById("reason").value
+  }
+
+  try {
+    await leaveService.createLeave(payload)
+
+    alert("Leave submitted successfully")
+
+    await loadLeaves()
+
+    e.target.reset()
+  } catch (err) {
+    alert(err)
+  }
+}
+
+async function approveLeave(id) {
+  try {
+    await leaveService.updateLeave(id, {
+      status: "Approved"
+    })
+
+    await loadLeaves()
+  } catch (err) {
+    alert(err)
+  }
+}
+
+async function denyLeave(id) {
+  try {
+    await leaveService.updateLeave(id, {
+      status: "Denied"
+    })
+
+    await loadLeaves()
+  } catch (err) {
+    alert(err)
   }
 }
 
@@ -43,25 +85,6 @@ function statusClass(status) {
   return 'pending'
 }
 
-const allLeaveRequests = computed(() => {
-  const records = []
-  timeOffArray.value.forEach(emp => {
-    emp.leaveRequests?.forEach((leave, idx) => {
-      if (leave.status === 'Pending') {
-        records.push({
-          id: `${emp.employeeId}-${idx}`,
-          employeeId: emp.employeeId,
-          name: emp.name,
-          date: leave.date,
-          reason: leave.reason,
-          status: leave.status
-        })
-      }
-    })
-  })
-  return records
-})
-
 function getStatusColor(status) {
   if (status === 'Pending') return '#f59e0b'
   if (status === 'Approved') return '#10b981'
@@ -69,28 +92,22 @@ function getStatusColor(status) {
   return '#6b7280'
 }
 
-function approveLeave(id) {
-  const [empId, idx] = id.split('-')
-  const emp = timeOffArray.value.find(e => String(e.employeeId) === empId)
-  if (emp && emp.leaveRequests && emp.leaveRequests[idx]) {
-    emp.leaveRequests[idx].status = 'Approved'
-  }
-}
+const allLeaveRequests = computed(() => {
+  return leaveRequests.value || []
+})
 
-function denyLeave(id) {
-  const [empId, idx] = id.split('-')
-  const emp = timeOffArray.value.find(e => String(e.employeeId) === empId)
-  if (emp && emp.leaveRequests && emp.leaveRequests[idx]) {
-    emp.leaveRequests[idx].status = 'Denied'
-  }
-}
+onMounted(() => {
+  loadAttendance()
+  loadLeaves()
+})
 </script>
+
 
 <template>
 <div class="container">
   <div class="card">
     <h2>Leave Request</h2>
-    <form id="requestForm">
+    <form id="requestForm" @submit="submitLeave">
       <label>Employee Name</label>
       <input id="name" required />
       <label>Type of Leave:</label>
@@ -111,17 +128,16 @@ function denyLeave(id) {
  </div>
  <br>
 
-    <!-- Tab Buttons -->
     <div class="tabs">
-      <button 
-        @click="activeTab = 'attendance'" 
+      <button
+        @click="activeTab = 'attendance'"
         :class="{ active: activeTab === 'attendance' }"
         class="tab-btn"
       >
         Attendance Records
       </button>
-      <button 
-        @click="activeTab = 'leave'" 
+      <button
+        @click="activeTab = 'leave'"
         :class="{ active: activeTab === 'leave' }"
         class="tab-btn"
       >
@@ -129,7 +145,6 @@ function denyLeave(id) {
       </button>
     </div>
 
-    <!-- Attendance Table -->
     <div v-if="activeTab === 'attendance'" class="card">
       <h2>Attendance Records</h2>
       <table class="attendance-table">
@@ -157,7 +172,6 @@ function denyLeave(id) {
       </table>
     </div>
 
-    <!-- Leave Requests Table -->
     <div v-if="activeTab === 'leave'" class="card">
       <h2>Pending Leave Requests</h2>
       <table class="attendance-table">

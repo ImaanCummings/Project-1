@@ -1,0 +1,31 @@
+const BASE_URL = 'http://localhost:3000/api';
+
+async function apiCall(url, options = {}) {
+  const config = {
+    headers: { 'Content-Type': 'application/json' },
+    ...options
+  };
+
+  try {
+    const response = await fetch(BASE_URL + url, config);
+    if (!response.ok) {
+      throw new Error(`Error ${response.status}: ${response.statusText}`);
+    }
+    return await response.json();
+  } catch (error) {
+    console.error('API call failed:', error);
+    throw error;
+  }
+}
+
+export const hrApi = {
+  getEmployees: () => apiCall('/employees'),
+  getAttendance: () => apiCall('/attendance'),
+
+  getLeaveRequests: () => apiCall('/leave'),
+  submitLeaveRequest: (data) => apiCall('/leave', { method: 'POST', body: JSON.stringify(data) }),
+
+  getReviews: () => apiCall('/reviews'),
+  submitReview: (data) => apiCall('/reviews', { method: 'POST', body: JSON.stringify(data) }),
+
+  getPayrollData: () => apiCall('/payroll')}

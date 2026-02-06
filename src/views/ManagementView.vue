@@ -1,22 +1,60 @@
 <script setup>
-import { ref } from 'vue';  
-import employeeData from '../data/employee_info.json';
+import { ref, onMounted } from 'vue'
+import employeeService from '@/services/employeeService'
 
-const employees = ref(employeeData.employeeInformation);
+const employees = ref([])
+const loading = ref(false)
+const error = ref('')
+
+async function loadEmployees() {
+  loading.value = true
+  error.value = ''
+
+  try {
+    employees.value = await employeeService.getEmployees()
+  } catch (err) {
+    error.value = err
+  } finally {
+    loading.value = false
+  }
+}
+
+onMounted(() => {
+  loadEmployees()
+})
 </script>
 
 <template>
-    <h1 class="heading"> Employee Management</h1>
-    <div class="employee-catalogue">
-        <div class="employee-card" v-for="employee in employees" :key="employee.employeeId">
-            <h3>{{ employee.name }}</h3>
-            <p><strong>Position:</strong> {{ employee.position }}</p>
-            <p><strong>Department:</strong> {{ employee.department }}</p>
-            <p><strong>Salary:</strong> R{{ employee.salary.toLocaleString() }}</p>
-            <p><strong>Employment History:</strong> {{ employee.employmentHistory }}</p>
-            <p><strong>Contact:</strong> {{ employee.contact }}</p>
-        </div>
+  <h1 class="heading">Employee Management</h1>
+
+  <div v-if="loading">Loading employees...</div>
+  <div v-if="error" style="color:red">{{ error }}</div>
+
+  <div class="employee-catalogue">
+    <div
+      class="employee-card"
+      v-for="employee in employees"
+      :key="employee.employeeId"
+    >
+      <h3>{{ employee.name }}</h3>
+
+      <p><strong>Position:</strong> {{ employee.position }}</p>
+
+      <p><strong>Department:</strong> {{ employee.department }}</p>
+
+      <p>
+        <strong>Salary:</strong>
+        R{{ Number(employee.salary || 0).toLocaleString() }}
+      </p>
+
+      <p>
+        <strong>Employment History:</strong>
+        {{ employee.employmentHistory }}
+      </p>
+
+      <p><strong>Contact:</strong> {{ employee.contact }}</p>
     </div>
+  </div>
 </template>
 
 <style>

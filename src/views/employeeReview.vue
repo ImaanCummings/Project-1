@@ -1,72 +1,60 @@
 <script setup>
-    import { ref, computed } from 'vue';
+import { ref, computed, onMounted } from 'vue'
+import reviewService from '@/services/reviewService'
+import employeeService from '@/services/employeeService'
 
-    const form = ref({
-        employeeName: '',
-        reviewText: ''
-    });
+const form = ref({
+  employeeName: '',
+  reviewText: ''
+})
 
-    const reviews = ref([
-        {
-            id: 1,
-            employeeName: 'Sibongile Nkosi',
-            reviewText: 'Excellent performer, consistently meets deadlines and shows strong leadership skills.'
-        },
-        {
-            id: 2,
-            employeeName: 'Lungile Moyo',
-            reviewText: 'Good technical skills, collaborates well with team members. Areas for improvement in documentation.'
-        },
-        {
-            id: 3,
-            employeeName: 'Thabo Molefe',
-            reviewText: 'Reliable team member with solid work ethic. Shows initiative in problem-solving.'
-        },
-        {
-            id: 4,
-            employeeName: 'Keshav Naidoo',
-            reviewText: 'Outstanding communication skills. Very receptive to feedback and continuous improvement.'
-        },
-        {
-            id: 5,
-            employeeName: 'Zanele Khumalo',
-            reviewText: 'Strong analytical capabilities. Could benefit from more assertiveness in team meetings.'
-        }
-    ]);
+const reviews = ref([])
+const employees = ref([])
 
-    const employeeNames = [
-        'Sibongile Nkosi',
-        'Lungile Moyo',
-        'Thabo Molefe',
-        'Keshav Naidoo',
-        'Zanele Khumalo',
-        'Sipho Zulu',
-        'Naledi Moeketsi',
-        'Farai Gumbo',
-        'Karabo Dlamini',
-        'Fatima Patel'
-    ];
+const loading = ref(false)
+const error = ref('')
 
-    const nextId = () => {
-        return Math.max(...reviews.value.map(r => r.id), 0) + 1;
-    }
+async function loadData() {
+  loading.value = true
+  try {
+    reviews.value = await reviewService.getReviews()
+    employees.value = await employeeService.getEmployees()
+  } catch {
+    error.value = 'Failed to load data'
+  } finally {
+    loading.value = false
+  }
+}
 
-    const isFormValid = computed(() => {
-        return form.value.employeeName.trim() !== '' && form.value.reviewText.trim() !== '';
-    });
+onMounted(() => {
+  loadData()
+})
 
-    const addReview = () => {
-        if (!isFormValid.value) return
-        const id = nextId();
-        reviews.value.push({
-            id,
-            employeeName: form.value.employeeName,
-            reviewText: form.value.reviewText
-        });
-        form.value.employeeName = '';
-        form.value.reviewText = '';
-    };
+const isFormValid = computed(() =>
+  form.value.employeeName.trim() !== '' &&
+  form.value.reviewText.trim() !== ''
+)
+
+async function addReview() {
+  if (!isFormValid.value) return
+
+  try {
+    await reviewService.createReview({
+      employeeName: form.value.employeeName,
+      reviewText: form.value.reviewText
+    })
+
+    reviews.value = await reviewService.getReviews()
+
+    form.value.employeeName = ''
+    form.value.reviewText = ''
+
+  } catch {
+    error.value = 'Failed to submit review'
+  }
+}
 </script>
+
 
 <template>
     <div class="form-container">
@@ -74,7 +62,7 @@
             <h1 class="heading">Employee Review</h1>
             <div class="mb-3">
                 <label for="employeeName" class="form-label">Select Employee Name</label>
-                <select v-model="form.employeeName" id="employeeName" class="form-select"> 
+                <select v-model="form.employeeName" id="employeeName" class="form-select">
                     <option value="">Select</option>
                     <option value="Sibongile Nkosi">Sibongile Nkosi</option>
                     <option value="Lungile Moyo">Lungile Moyo</option>
@@ -107,7 +95,7 @@
                 </tr>
             </thead>
             <tbody>
-                <tr v-for="review in reviews" :key="review.id"> 
+                <tr v-for="review in reviews" :key="review.id">
 
                     <td>{{ review.employeeName }}</td>
                     <td>{{ review.reviewText }}</td>
@@ -180,7 +168,7 @@
   border-radius: 4px;
   font-weight: bold;
   cursor: pointer;
-  transition: background 0.3s;
+  transition: background-color 0.3s;
 }
 
 .btn:hover {

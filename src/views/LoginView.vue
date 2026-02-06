@@ -5,6 +5,7 @@ import auth from '@/services/auth'
 
 const router = useRouter()
 const route = useRoute()
+
 const email = ref('')
 const password = ref('')
 const error = ref('')
@@ -13,17 +14,24 @@ const loading = ref(false)
 async function handleLogin() {
   error.value = ''
   loading.value = true
+
   try {
-    await auth.login(email.value, password.value)
+    await auth.login({
+      email: email.value,
+      password: password.value
+    })
+
     const redirect = route.query.redirect || '/'
     router.push(redirect)
+
   } catch (err) {
-    error.value = err.message || 'Login failed'
+    error.value = err || 'Login failed'
   } finally {
     loading.value = false
   }
 }
 </script>
+
 
 <template>
   <div class="login-container">
@@ -117,7 +125,6 @@ async function handleLogin() {
   font-size: 1rem;
   font-weight: bold;
   cursor: pointer;
-  transition: background 0.3s;
 }
 
 .btn-submit:hover:not(:disabled) {
@@ -139,7 +146,6 @@ async function handleLogin() {
   font-size: 1rem;
   font-weight: bold;
   cursor: pointer;
-  transition: background 0.3s;
 }
 
 .sign-in {
