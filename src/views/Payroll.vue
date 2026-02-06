@@ -1,22 +1,37 @@
 <script setup>
-import { computed } from 'vue'
-import { jsPDF } from 'jspdf'              
+import { computed, ref, onMounted } from 'vue'
+import { jsPDF } from 'jspdf'
 import payrollJson from '@/data/payroll_data.json'
 import employeeJson from '@/data/employee_info.json'
+import { api } from '../services/api'
 
-const payrollArray = payrollJson.payrollData ?? []
-const employees = employeeJson.employeeInformation ?? []
+const payrollArray = ref([])
+const employees = ref([])
 
+onMounted(async () => {
+  try {
+    const [payrollList, employeeList] = await Promise.all([
+      api.getPayroll(),
+      api.getEmployees()
+    ])
+    payrollArray.value = Array.isArray(payrollList) ? payrollList : []
+    employees.value = Array.isArray(employeeList) ? employeeList : []
+  } catch (error) {
+    console.error('Failed to load payroll from API:', error)
+    payrollArray.value = payrollJson.payrollData ?? []
+    employees.value = employeeJson.employeeInformation ?? []
+  }
+})
 
 const processed = computed(() =>
-  payrollArray.map(p => {
-    const emp = employees.find(e => Number(e.employeeId) === Number(p.employeeId))
+  payrollArray.value.map(p => {
+    const emp = employees.value.find(e => Number(e.employee_id ?? e.employeeId) === Number(p.employee_id ?? p.employeeId))
     const name = emp?.name ?? 'Unknown'
     const hours = Number(p.hoursWorked ?? p.hours_worked ?? 0)
     const finalSalary = Number(p.finalSalary ?? p.final_salary ?? p.amount ?? 0)
     const hourlyRate = hours > 0 ? finalSalary / hours : 0
     return {
-      employeeId: Number(p.employeeId),
+      employeeId: Number(p.employee_id ?? p.employeeId),
       name,
       hours,
       leaveDeductions: p.leaveDeductions ?? p.leave_deductions ?? 0,
@@ -29,7 +44,7 @@ const processed = computed(() =>
 
 
 function downloadPayslip(row) {
-  const emp = employees.find(e => Number(e.employeeId) === Number(row.employeeId))
+  const emp = employees.value.find(e => Number(e.employee_id ?? e.employeeId) === Number(row.employeeId))
   const payslipContent = `
 PAYSLIP
 =====================================
@@ -62,7 +77,7 @@ Generated: ${new Date().toLocaleDateString()}
 
 
 function downloadPayslipPdf(row) {
-  const emp = employees.find(e => Number(e.employeeId) === Number(row.employeeId))
+  const emp = employees.value.find(e => Number(e.employee_id ?? e.employeeId) === Number(row.employeeId))
 
   const doc = new jsPDF({
     unit: 'pt',

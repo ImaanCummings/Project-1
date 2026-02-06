@@ -1,19 +1,30 @@
 <script setup>
-import { ref } from 'vue';  
+import { ref, onMounted } from 'vue';
 import employeeData from '../data/employee_info.json';
+import { api } from '../services/api';
 
-const employees = ref(employeeData.employeeInformation);
+const employees = ref([]);
+
+onMounted(async () => {
+  try {
+    const data = await api.getEmployees();
+    employees.value = Array.isArray(data) ? data : [];
+  } catch (error) {
+    console.error('Failed to load employees from API:', error);
+    employees.value = employeeData.employeeInformation ?? [];
+  }
+});
 </script>
 
 <template>
     <h1 class="heading"> Employee Management</h1>
     <div class="employee-catalogue">
-        <div class="employee-card" v-for="employee in employees" :key="employee.employeeId">
+        <div class="employee-card" v-for="employee in employees" :key="employee.employee_id ?? employee.employeeId">
             <h3>{{ employee.name }}</h3>
             <p><strong>Position:</strong> {{ employee.position }}</p>
             <p><strong>Department:</strong> {{ employee.department }}</p>
-            <p><strong>Salary:</strong> R{{ employee.salary.toLocaleString() }}</p>
-            <p><strong>Employment History:</strong> {{ employee.employmentHistory }}</p>
+            <p><strong>Salary:</strong> R{{ Number(employee.salary ?? 0).toLocaleString() }}</p>
+            <p><strong>Employment History:</strong> {{ employee.employment_history ?? employee.employmentHistory }}</p>
             <p><strong>Contact:</strong> {{ employee.contact }}</p>
         </div>
     </div>

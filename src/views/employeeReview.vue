@@ -1,71 +1,56 @@
 <script setup>
-    import { ref, computed } from 'vue';
+    import { ref, computed, onMounted } from 'vue';
+    import { api } from '../services/api';
 
     const form = ref({
-        employeeName: '',
+        employeeId: '',
         reviewText: ''
     });
 
-    const reviews = ref([
-        {
-            id: 1,
-            employeeName: 'Sibongile Nkosi',
-            reviewText: 'Excellent performer, consistently meets deadlines and shows strong leadership skills.'
-        },
-        {
-            id: 2,
-            employeeName: 'Lungile Moyo',
-            reviewText: 'Good technical skills, collaborates well with team members. Areas for improvement in documentation.'
-        },
-        {
-            id: 3,
-            employeeName: 'Thabo Molefe',
-            reviewText: 'Reliable team member with solid work ethic. Shows initiative in problem-solving.'
-        },
-        {
-            id: 4,
-            employeeName: 'Keshav Naidoo',
-            reviewText: 'Outstanding communication skills. Very receptive to feedback and continuous improvement.'
-        },
-        {
-            id: 5,
-            employeeName: 'Zanele Khumalo',
-            reviewText: 'Strong analytical capabilities. Could benefit from more assertiveness in team meetings.'
-        }
-    ]);
-
-    const employeeNames = [
-        'Sibongile Nkosi',
-        'Lungile Moyo',
-        'Thabo Molefe',
-        'Keshav Naidoo',
-        'Zanele Khumalo',
-        'Sipho Zulu',
-        'Naledi Moeketsi',
-        'Farai Gumbo',
-        'Karabo Dlamini',
-        'Fatima Patel'
-    ];
-
-    const nextId = () => {
-        return Math.max(...reviews.value.map(r => r.id), 0) + 1;
-    }
+    const employees = ref([]);
+    const reviews = ref([]);
+    const loading = ref(false);
 
     const isFormValid = computed(() => {
-        return form.value.employeeName.trim() !== '' && form.value.reviewText.trim() !== '';
+        return String(form.value.employeeId).trim() !== '' && form.value.reviewText.trim() !== '';
     });
 
-    const addReview = () => {
-        if (!isFormValid.value) return
-        const id = nextId();
-        reviews.value.push({
-            id,
-            employeeName: form.value.employeeName,
-            reviewText: form.value.reviewText
-        });
-        form.value.employeeName = '';
-        form.value.reviewText = '';
+    async function loadData() {
+        try {
+            const [employeeList, reviewList] = await Promise.all([
+                api.getEmployees(),
+                api.getReviews()
+            ]);
+            employees.value = Array.isArray(employeeList) ? employeeList : [];
+            reviews.value = Array.isArray(reviewList) ? reviewList : [];
+        } catch (error) {
+            console.error('Failed to load reviews:', error);
+        }
+    }
+
+    const addReview = async () => {
+        if (!isFormValid.value) return;
+        const employee = employees.value.find(e => String(e.employee_id) === String(form.value.employeeId));
+        if (!employee) return;
+
+        loading.value = true;
+        try {
+            await api.addReview({
+                employee_id: Number(form.value.employeeId),
+                name: employee.name,
+                review: form.value.reviewText
+            });
+            await loadData();
+            form.value.employeeId = '';
+            form.value.reviewText = '';
+        } catch (error) {
+            console.error('Failed to submit review:', error);
+        } finally {
+            loading.value = false;
+        }
     };
+
+    onMounted(loadData);
 </script>
 
 <template>
@@ -74,18 +59,11 @@
             <h1 class="heading">Employee Review</h1>
             <div class="mb-3">
                 <label for="employeeName" class="form-label">Select Employee Name</label>
-                <select v-model="form.employeeName" id="employeeName" class="form-select"> 
+                <select v-model="form.employeeId" id="employeeName" class="form-select"> 
                     <option value="">Select</option>
-                    <option value="Sibongile Nkosi">Sibongile Nkosi</option>
-                    <option value="Lungile Moyo">Lungile Moyo</option>
-                    <option value="Thabo Molefe">Thabo Molefe</option>
-                    <option value="Keshav Naidoo">Keshav Naidoo</option>
-                    <option value="Zanele Khumalo">Zanele Khumalo</option>
-                    <option value="Sipho Zulu">Sipho Zulu</option>
-                    <option value="Naledi Moeketsi">Naledi Moeketsi</option>
-                    <option value="Farai Gumbo">Farai Gumbo</option>
-                    <option value="Karabo Dlamini">Karabo Dlamini</option>
-                    <option value="Fatima Patel">Fatima Patel</option>
+                    <option v-for="emp in employees" :key="emp.employee_id" :value="emp.employee_id">
+                      {{ emp.name }}
+                    </option>
                 </select>
             </div>
 
@@ -94,7 +72,9 @@
                 <textarea v-model="form.reviewText" id="reviewTextarea" class="form-control" rows="3"></textarea>
             </div>
 
-            <button @click="addReview" class="btn btn-primary">Submit Review</button>
+            <button @click="addReview" class="btn btn-primary" :disabled="loading">
+              {{ loading ? 'Submitting...' : 'Submit Review' }}
+            </button>
         </div>
     </div>
 
@@ -107,10 +87,9 @@
                 </tr>
             </thead>
             <tbody>
-                <tr v-for="review in reviews" :key="review.id"> 
-
-                    <td>{{ review.employeeName }}</td>
-                    <td>{{ review.reviewText }}</td>
+                <tr v-for="(review, idx) in reviews" :key="`${review.employee_id}-${idx}`"> 
+                    <td>{{ review.name }}</td>
+                    <td>{{ review.review }}</td>
                 </tr>
             </tbody>
         </table>

@@ -1,66 +1,52 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
-import attendanceJson from '@/data/attendance.json'
-import employeeJson from '@/data/employee_info.json'
+import { api } from '../services/api'
 
-const attendanceData = ref([])
-const employees = computed(() => employeeJson.employeeInformation ?? [])
-const timeOffArray = ref(attendanceJson.attendanceAndLeave ?? [])
 const activeTab = ref('attendance')
+const attendanceData = ref([])
+const leaveRecords = ref([])
+const employees = ref([])
+const loadingLeave = ref(false)
 
-onMounted(() => {
-  // Flatten attendance records from nested structure
-  const flattened = []
-  const rawData = attendanceJson.attendanceAndLeave ?? []
-  
-  rawData.forEach((emp, idx) => {
-    if (emp.employeeId && emp.attendance) {
-      emp.attendance.forEach((att, attIdx) => {
-        flattened.push({
-          id: `${emp.employeeId}-${attIdx}`,
-          employeeId: emp.employeeId,
-          name: emp.name ?? 'Unknown',
-          date: att.date ?? '',
-          status: att.status ?? 'pending'
-        })
-      })
-    }
-  })
-  
-  attendanceData.value = flattened
+const form = ref({
+  name: '',
+  type: 'Vacation',
+  from: '',
+  to: '',
+  reason: ''
 })
 
-function updateStatus(id, status) {
-  const record = attendanceData.value.find(a => a.id === id)
-  if (record) {
-    record.status = status
-  }
-}
+const attendanceRows = computed(() => {
+  return attendanceData.value.map((row, idx) => {
+    const employee = employees.value.find(e => Number(e.employee_id) === Number(row.employee_id))
+    return {
+      id: row.id ?? `${row.employee_id}-${idx}`,
+      employeeId: row.employee_id,
+      name: employee?.name ?? `Employee ${row.employee_id}`,
+      date: row.attendance_date ?? row.date ?? '',
+      status: row.status ?? 'Pending'
+    }
+  })
+})
+
+const allLeaveRequests = computed(() => {
+  return leaveRecords.value
+    .filter(l => l.status === 'Pending')
+    .map((l) => ({
+      id: l.employee_id,
+      employeeId: l.employee_id,
+      name: l.name,
+      date: l.date,
+      reason: l.reason,
+      status: l.status
+    }))
+})
 
 function statusClass(status) {
   if (status === 'approved' || status === 'Approved') return 'approved'
   if (status === 'rejected' || status === 'Denied') return 'rejected'
   return 'pending'
 }
-
-const allLeaveRequests = computed(() => {
-  const records = []
-  timeOffArray.value.forEach(emp => {
-    emp.leaveRequests?.forEach((leave, idx) => {
-      if (leave.status === 'Pending') {
-        records.push({
-          id: `${emp.employeeId}-${idx}`,
-          employeeId: emp.employeeId,
-          name: emp.name,
-          date: leave.date,
-          reason: leave.reason,
-          status: leave.status
-        })
-      }
-    })
-  })
-  return records
-})
 
 function getStatusColor(status) {
   if (status === 'Pending') return '#f59e0b'
@@ -69,44 +55,87 @@ function getStatusColor(status) {
   return '#6b7280'
 }
 
-function approveLeave(id) {
-  const [empId, idx] = id.split('-')
-  const emp = timeOffArray.value.find(e => String(e.employeeId) === empId)
-  if (emp && emp.leaveRequests && emp.leaveRequests[idx]) {
-    emp.leaveRequests[idx].status = 'Approved'
+async function loadData() {
+  try {
+    const [attendanceList, leaveList, employeeList] = await Promise.all([
+      api.getAttendance(),
+      api.getLeaves(),
+      api.getEmployees()
+    ])
+    attendanceData.value = Array.isArray(attendanceList) ? attendanceList : []
+    leaveRecords.value = Array.isArray(leaveList) ? leaveList : []
+    employees.value = Array.isArray(employeeList) ? employeeList : []
+  } catch (error) {
+    console.error('Failed to load time off data:', error)
   }
 }
 
-function denyLeave(id) {
-  const [empId, idx] = id.split('-')
-  const emp = timeOffArray.value.find(e => String(e.employeeId) === empId)
-  if (emp && emp.leaveRequests && emp.leaveRequests[idx]) {
-    emp.leaveRequests[idx].status = 'Denied'
+async function submitLeave(event) {
+  event.preventDefault()
+  if (!form.value.name.trim() || !form.value.from || !form.value.reason.trim()) return
+
+  const combinedReason = `${form.value.type} (${form.value.from}${form.value.to ? ` to ${form.value.to}` : ''}) - ${form.value.reason}`
+  loadingLeave.value = true
+  try {
+    await api.addLeave({
+      name: form.value.name,
+      date: form.value.from,
+      reason: combinedReason,
+      status: 'Pending'
+    })
+    await loadData()
+    form.value = { name: '', type: 'Vacation', from: '', to: '', reason: '' }
+  } catch (error) {
+    console.error('Failed to submit leave request:', error)
+  } finally {
+    loadingLeave.value = false
   }
 }
+
+async function approveLeave(id) {
+  try {
+    await api.updateLeaveStatus(id, { status: 'Approved' })
+    await loadData()
+  } catch (error) {
+    console.error('Failed to approve leave:', error)
+  }
+}
+
+async function denyLeave(id) {
+  try {
+    await api.updateLeaveStatus(id, { status: 'Denied' })
+    await loadData()
+  } catch (error) {
+    console.error('Failed to deny leave:', error)
+  }
+}
+
+onMounted(loadData)
 </script>
 
 <template>
 <div class="container">
   <div class="card">
     <h2>Leave Request</h2>
-    <form id="requestForm">
+    <form id="requestForm" @submit="submitLeave">
       <label>Employee Name</label>
-      <input id="name" required />
+      <input id="name" v-model="form.name" required />
       <label>Type of Leave:</label>
-      <select id="type">
+      <select id="type" v-model="form.type">
       <option>Vacation</option>
       <option>Sick Leave</option>
       <option>Personal</option>
       <option>Unpaid</option>
       </select>
       <label>Date Start</label>
-      <input type="date" id="from" required />
+      <input type="date" id="from" v-model="form.from" required />
       <label>Date End</label>
-      <input type="date" id="to" required />
+      <input type="date" id="to" v-model="form.to" />
       <label>Reason</label>
-      <textarea id="reason"></textarea>
-      <button class="btn-primary" type="submit">Submit</button>
+      <textarea id="reason" v-model="form.reason"></textarea>
+      <button class="btn-primary" type="submit" :disabled="loadingLeave">
+        {{ loadingLeave ? 'Submitting...' : 'Submit' }}
+      </button>
     </form>
  </div>
  <br>
@@ -141,7 +170,7 @@ function denyLeave(id) {
           </tr>
         </thead>
         <tbody>
-          <tr v-for="record in attendanceData" :key="record.id">
+          <tr v-for="record in attendanceRows" :key="record.id">
             <td>{{ record.name }}</td>
             <td>{{ record.date }}</td>
             <td>
@@ -150,7 +179,7 @@ function denyLeave(id) {
               </span>
             </td>
           </tr>
-          <tr v-if="attendanceData.length === 0">
+          <tr v-if="attendanceRows.length === 0">
             <td colspan="3" style="text-align: center; color: #999;">No attendance records</td>
           </tr>
         </tbody>
